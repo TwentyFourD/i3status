@@ -492,143 +492,149 @@ void print_wireless_info(yajl_gen json_gen, char *extbuffer, const char *interfa
         const char *walk;
         outwalk = buffer;
 
-    wireless_info_t info;
+        wireless_info_t info;
 
-    INSTANCE(interface);
+        INSTANCE(interface);
 
-    char *ipv4_address = sstrdup(get_ip_addr(interface, AF_INET));
-    char *ipv6_address = sstrdup(get_ip_addr(interface, AF_INET6));
+        char *ipv4_address = sstrdup(get_ip_addr(interface, AF_INET));
+        char *ipv6_address = sstrdup(get_ip_addr(interface, AF_INET6));
 
-    /*
+        /*
      * Removing '%' and following characters from IPv6 since the interface identifier is redundant,
      * as the output already includes the interface name.
     */
-    if (ipv6_address != NULL) {
-        char *prct_ptr = strstr(ipv6_address, "%");
-        if (prct_ptr != NULL) {
-            *prct_ptr = '\0';
+        if (ipv6_address != NULL) {
+            char *prct_ptr = strstr(ipv6_address, "%");
+            if (prct_ptr != NULL) {
+                *prct_ptr = '\0';
+            }
         }
-    }
 
-    bool prefer_ipv4 = true;
-    if (ipv4_address == NULL) {
-        if (ipv6_address == NULL) {
-	        col = COLOUR_BAD;
-            START_COLOR("color_bad");
-            outwalk += sprintf(outwalk, "%s", format_down);
-            goto out;
-        } else {
+        bool prefer_ipv4 = true;
+        if (ipv4_address == NULL) {
+            if (ipv6_address == NULL) {
+                col = COLOUR_BAD;
+                START_COLOR("color_bad");
+                outwalk += sprintf(outwalk, "%s", format_down);
+                goto out;
+            } else {
+                prefer_ipv4 = false;
+            }
+        } else if (BEGINS_WITH(ipv4_address, "no IP") && ipv6_address != NULL && !BEGINS_WITH(ipv6_address, "no IP")) {
             prefer_ipv4 = false;
         }
-    } else if (BEGINS_WITH(ipv4_address, "no IP") && ipv6_address != NULL && !BEGINS_WITH(ipv6_address, "no IP")) {
-        prefer_ipv4 = false;
-    }
 
-    const char *ip_address = (prefer_ipv4) ? ipv4_address : ipv6_address;
-    if (!get_wireless_info(interface, &info)) {
-        walk = format_down;
-        col = COLOUR_BAD;
-        START_COLOR("color_bad");
-    } else {
-        walk = format_up;
-        if (info.flags & WIRELESS_INFO_FLAG_HAS_QUALITY) {
-	        col = (info.quality < info.quality_average ? COLOUR_DEGRADED : COLOUR_GOOD);
-            START_COLOR((info.quality < info.quality_average ? "color_degraded" : "color_good"));
+        const char *ip_address = (prefer_ipv4) ? ipv4_address : ipv6_address;
+        if (!get_wireless_info(interface, &info)) {
+            walk = format_down;
+            col = COLOUR_BAD;
+            START_COLOR("color_bad");
         } else {
-            if (BEGINS_WITH(ip_address, "no IP")) {
-	            col = COLOUR_DEGRADED;
-                START_COLOR("color_degraded");
-            } else {
-	            col = COLOUR_GOOD;
-                START_COLOR("color_good");
-            }
-        }
-    }
-
-    for (; *walk != '\0'; ) {
-        if (*walk != '%') {
-            *(outwalk++) = *walk++;
-
-        } else if (BEGINS_WITH(walk + 1, "quality")) {
+            walk = format_up;
             if (info.flags & WIRELESS_INFO_FLAG_HAS_QUALITY) {
-                if (info.quality_max)
-                    outwalk += sprintf(outwalk, format_quality, PERCENT_VALUE(info.quality, info.quality_max), pct_mark);
-                else
-                    outwalk += sprintf(outwalk, "%d", info.quality);
+                col = (info.quality < info.quality_average ? COLOUR_DEGRADED : COLOUR_GOOD);
+                START_COLOR((info.quality < info.quality_average ? "color_degraded" : "color_good"));
             } else {
-                *(outwalk++) = '?';
+                if (BEGINS_WITH(ip_address, "no IP")) {
+                    col = COLOUR_DEGRADED;
+                    START_COLOR("color_degraded");
+                } else {
+                    col = COLOUR_GOOD;
+                    START_COLOR("color_good");
+                }
             }
-            walk += sizeof("quality");
+        }
 
-        } else if (BEGINS_WITH(walk + 1, "signal")) {
-            if (info.flags & WIRELESS_INFO_FLAG_HAS_SIGNAL) {
-                if (info.signal_level_max)
-                    outwalk += sprintf(outwalk, "%3d%s", PERCENT_VALUE(info.signal_level, info.signal_level_max), pct_mark);
-                else
-                    outwalk += sprintf(outwalk, "%d dBm", info.signal_level);
-            } else {
-                *(outwalk++) = '?';
-            }
-            walk += sizeof("signal");
+        for (; *walk != '\0';) {
+            if (*walk != '%') {
+                *(outwalk++) = *walk++;
 
-        } else if (BEGINS_WITH(walk + 1, "noise")) {
-            if (info.flags & WIRELESS_INFO_FLAG_HAS_NOISE) {
-                if (info.noise_level_max)
-                    outwalk += sprintf(outwalk, "%3d%s", PERCENT_VALUE(info.noise_level, info.noise_level_max), pct_mark);
-                else
-                    outwalk += sprintf(outwalk, "%d dBm", info.noise_level);
-            } else {
-                *(outwalk++) = '?';
-            }
-            walk += sizeof("noise");
+            } else if (BEGINS_WITH(walk + 1, "quality")) {
+                if (info.flags & WIRELESS_INFO_FLAG_HAS_QUALITY) {
+                    if (info.quality_max)
+                        outwalk += sprintf(outwalk, format_quality, PERCENT_VALUE(info.quality, info.quality_max), pct_mark);
+                    else
+                        outwalk += sprintf(outwalk, "%d", info.quality);
+                } else {
+                    *(outwalk++) = '?';
+                }
+                walk += sizeof("quality");
 
-        } else if (BEGINS_WITH(walk + 1, "essid")) {
+            } else if (BEGINS_WITH(walk + 1, "signal")) {
+                if (info.flags & WIRELESS_INFO_FLAG_HAS_SIGNAL) {
+                    if (info.signal_level_max)
+                        outwalk += sprintf(outwalk, "%3d%s", PERCENT_VALUE(info.signal_level, info.signal_level_max), pct_mark);
+                    else
+                        outwalk += sprintf(outwalk, "%d dBm", info.signal_level);
+                } else {
+                    *(outwalk++) = '?';
+                }
+                walk += sizeof("signal");
+
+            } else if (BEGINS_WITH(walk + 1, "noise")) {
+                if (info.flags & WIRELESS_INFO_FLAG_HAS_NOISE) {
+                    if (info.noise_level_max)
+                        outwalk += sprintf(outwalk, "%3d%s", PERCENT_VALUE(info.noise_level, info.noise_level_max), pct_mark);
+                    else
+                        outwalk += sprintf(outwalk, "%d dBm", info.noise_level);
+                } else {
+                    *(outwalk++) = '?';
+                }
+                walk += sizeof("noise");
+
+            } else if (BEGINS_WITH(walk + 1, "essid")) {
 #ifdef IW_ESSID_MAX_SIZE
-            if (info.flags & WIRELESS_INFO_FLAG_HAS_ESSID)
-                maybe_escape_markup(info.essid, &outwalk);
-            else
+                if (info.flags & WIRELESS_INFO_FLAG_HAS_ESSID)
+                    maybe_escape_markup(info.essid, &outwalk);
+                else
 #endif
-                *(outwalk++) = '?';
-            walk += sizeof("essid");
+                    *(outwalk++) = '?';
+                walk += sizeof("essid");
 
-        } else if (BEGINS_WITH(walk + 1, "frequency")) {
-            if (info.flags & WIRELESS_INFO_FLAG_HAS_FREQUENCY)
-                outwalk += sprintf(outwalk, "%1.1f GHz", info.frequency / 1e9);
-            else
-                *(outwalk++) = '?';
-            walk += sizeof("frequency");
+            } else if (BEGINS_WITH(walk + 1, "frequency")) {
+                if (info.flags & WIRELESS_INFO_FLAG_HAS_FREQUENCY)
+                    outwalk += sprintf(outwalk, "%1.1f GHz", info.frequency / 1e9);
+                else
+                    *(outwalk++) = '?';
+                walk += sizeof("frequency");
 
-        } else if (BEGINS_WITH(walk + 1, "ip")) {
-            outwalk += sprintf(outwalk, "%s", ip_address);
-            walk += sizeof("ip");
-        }
+            } else if (BEGINS_WITH(walk + 1, "ip")) {
+                outwalk += sprintf(outwalk, "%s", ip_address);
+                walk += sizeof("ip");
+            }
 #ifdef LINUX
-        else if (BEGINS_WITH(walk + 1, "bitrate")) {
-            char br_buffer[128];
+            else if (BEGINS_WITH(walk + 1, "bitrate")) {
+                char br_buffer[128];
 
-            print_bitrate(br_buffer, sizeof(br_buffer), info.bitrate);
+                print_bitrate(br_buffer, sizeof(br_buffer), info.bitrate);
 
-            outwalk += sprintf(outwalk, "%s", br_buffer);
-            walk += sizeof("bitrate");
-        }
+                outwalk += sprintf(outwalk, "%s", br_buffer);
+                walk += sizeof("bitrate");
+            }
 #endif
-        else {
-            *(outwalk++) = '%';
-            ++walk;
+            else {
+                *(outwalk++) = '%';
+                ++walk;
+            }
         }
+    out:
+        END_COLOR;
+        free(ipv4_address);
+        free(ipv6_address);
+        OUTPUT_FULL_TEXT(buffer);
+        return;
     }
-out:
     END_COLOR;
-    free(ipv4_address);
-    free(ipv6_address);
-    OUTPUT_FULL_TEXT(buffer);
-    return;
-    }
-    END_COLOR;
-    switch(col) {
-    case COLOUR_BAD: START_COLOR("color_bad"); break;
-    case COLOUR_DEGRADED: START_COLOR("color_degraded"); break;
-    case COLOUR_GOOD: START_COLOR("color_good"); break;
+    switch (col) {
+        case COLOUR_BAD:
+            START_COLOR("color_bad");
+            break;
+        case COLOUR_DEGRADED:
+            START_COLOR("color_degraded");
+            break;
+        case COLOUR_GOOD:
+            START_COLOR("color_good");
+            break;
     }
     OUTPUT_FULL_TEXT(buffer);
     return;

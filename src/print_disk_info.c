@@ -110,7 +110,7 @@ static bool below_threshold(struct statvfs buf, const char *prefix_type, const c
  * human readable manner.
  *
  */
- void print_disk_info(yajl_gen json_gen, char *extbuffer, const char *path, const char *format, const char *format_below_threshold, const char *format_not_mounted, const char *prefix_type, const char *threshold_type, const double low_threshold, int interval) {
+void print_disk_info(yajl_gen json_gen, char *extbuffer, const char *path, const char *format, const char *format_below_threshold, const char *format_not_mounted, const char *prefix_type, const char *threshold_type, const double low_threshold, int interval) {
     static int count = 1;
     static char buffer[128];
     static char *outwalk = buffer;
@@ -120,113 +120,113 @@ static bool below_threshold(struct statvfs buf, const char *prefix_type, const c
         count = interval;
         const char *walk;
         outwalk = buffer;
-    const char *selected_format = format;
-    colorful_output = false;
-    bool mounted = false;
+        const char *selected_format = format;
+        colorful_output = false;
+        bool mounted = false;
 
-    INSTANCE(path);
+        INSTANCE(path);
 
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__APPLE__)
-    struct statfs buf;
+        struct statfs buf;
 
-    if (statfs(path, &buf) == -1)
-        return;
+        if (statfs(path, &buf) == -1)
+            return;
 
-    mounted = true;
+        mounted = true;
 #elif defined(__NetBSD__)
-    struct statvfs buf;
+        struct statvfs buf;
 
-    if (statvfs(path, &buf) == -1)
-        return;
+        if (statvfs(path, &buf) == -1)
+            return;
 
-    mounted = true;
+        mounted = true;
 #else
-    struct statvfs buf;
+        struct statvfs buf;
 
-    if (statvfs(path, &buf) == -1) {
-        /* If statvfs errors, e.g., due to the path not existing,
+        if (statvfs(path, &buf) == -1) {
+            /* If statvfs errors, e.g., due to the path not existing,
          * we consider the device not mounted. */
-        mounted = false;
-    } else {
-        char *sanitized = sstrdup(path);
-        if (strlen(sanitized) > 1 && sanitized[strlen(sanitized) - 1] == '/')
-            sanitized[strlen(sanitized) - 1] = '\0';
-        FILE *mntentfile = setmntent("/etc/mtab", "r");
-        struct mntent *m;
+            mounted = false;
+        } else {
+            char *sanitized = sstrdup(path);
+            if (strlen(sanitized) > 1 && sanitized[strlen(sanitized) - 1] == '/')
+                sanitized[strlen(sanitized) - 1] = '\0';
+            FILE *mntentfile = setmntent("/etc/mtab", "r");
+            struct mntent *m;
 
-        while ((m = getmntent(mntentfile)) != NULL) {
-            if (strcmp(m->mnt_dir, sanitized) == 0) {
-                mounted = true;
-                break;
+            while ((m = getmntent(mntentfile)) != NULL) {
+                if (strcmp(m->mnt_dir, sanitized) == 0) {
+                    mounted = true;
+                    break;
+                }
             }
+            endmntent(mntentfile);
+            free(sanitized);
         }
-        endmntent(mntentfile);
-        free(sanitized);
-    }
 #endif
 
-    if (!mounted) {
-        if (format_not_mounted == NULL)
-            format_not_mounted = "";
-        selected_format = format_not_mounted;
-    } else if (low_threshold > 0 && below_threshold(buf, prefix_type, threshold_type, low_threshold)) {
-        START_COLOR("color_bad");
-        colorful_output = true;
-        if (format_below_threshold != NULL)
-            selected_format = format_below_threshold;
-    }
-
-    for (walk = selected_format; *walk != '\0'; ) {
-        if (*walk != '%') {
-            *(outwalk++) = *walk++;
-
-        } else if (BEGINS_WITH(walk + 1, "free")) {
-            outwalk += print_bytes_human(outwalk, (uint64_t)buf.f_bsize * (uint64_t)buf.f_bfree, prefix_type);
-            walk += sizeof("free");
-
-        } else if (BEGINS_WITH(walk + 1, "used")) {
-            outwalk += print_bytes_human(outwalk, (uint64_t)buf.f_bsize * ((uint64_t)buf.f_blocks - (uint64_t)buf.f_bfree), prefix_type);
-            walk += sizeof("used");
-
-        } else if (BEGINS_WITH(walk + 1, "total")) {
-            outwalk += print_bytes_human(outwalk, (uint64_t)buf.f_bsize * (uint64_t)buf.f_blocks, prefix_type);
-            walk += sizeof("total");
-
-        } else if (BEGINS_WITH(walk + 1, "avail")) {
-            outwalk += print_bytes_human(outwalk, (uint64_t)buf.f_bsize * (uint64_t)buf.f_bavail, prefix_type);
-            walk += sizeof("avail");
-
-        } else if (BEGINS_WITH(walk + 1, "percentage_free")) {
-            outwalk += sprintf(outwalk, "%.01f%s", 100.0 * (double)buf.f_bfree / (double)buf.f_blocks, pct_mark);
-            walk += sizeof("percentage_free");
-
-        } else if (BEGINS_WITH(walk + 1, "percentage_used_of_avail")) {
-            outwalk += sprintf(outwalk, "%.01f%s", 100.0 * (double)(buf.f_blocks - buf.f_bavail) / (double)buf.f_blocks, pct_mark);
-            walk += sizeof("percentage_used_of_avail");
-
-        } else if (BEGINS_WITH(walk + 1, "percentage_used")) {
-            outwalk += sprintf(outwalk, "%.01f%s", 100.0 * (double)(buf.f_blocks - buf.f_bfree) / (double)buf.f_blocks, pct_mark);
-            walk += sizeof("percentage_used");
-
-        } else if (BEGINS_WITH(walk + 1, "percentage_avail")) {
-            outwalk += sprintf(outwalk, "%.01f%s", 100.0 * (double)buf.f_bavail / (double)buf.f_blocks, pct_mark);
-            walk += sizeof("percentage_avail");
-
-        } else {
-            *(outwalk++) = '%';
-            ++walk;
+        if (!mounted) {
+            if (format_not_mounted == NULL)
+                format_not_mounted = "";
+            selected_format = format_not_mounted;
+        } else if (low_threshold > 0 && below_threshold(buf, prefix_type, threshold_type, low_threshold)) {
+            START_COLOR("color_bad");
+            colorful_output = true;
+            if (format_below_threshold != NULL)
+                selected_format = format_below_threshold;
         }
-    }
 
-    if (colorful_output)
-        END_COLOR;
+        for (walk = selected_format; *walk != '\0';) {
+            if (*walk != '%') {
+                *(outwalk++) = *walk++;
 
-    *outwalk = '\0';
-    OUTPUT_FULL_TEXT(buffer);
-    return;
+            } else if (BEGINS_WITH(walk + 1, "free")) {
+                outwalk += print_bytes_human(outwalk, (uint64_t)buf.f_bsize * (uint64_t)buf.f_bfree, prefix_type);
+                walk += sizeof("free");
+
+            } else if (BEGINS_WITH(walk + 1, "used")) {
+                outwalk += print_bytes_human(outwalk, (uint64_t)buf.f_bsize * ((uint64_t)buf.f_blocks - (uint64_t)buf.f_bfree), prefix_type);
+                walk += sizeof("used");
+
+            } else if (BEGINS_WITH(walk + 1, "total")) {
+                outwalk += print_bytes_human(outwalk, (uint64_t)buf.f_bsize * (uint64_t)buf.f_blocks, prefix_type);
+                walk += sizeof("total");
+
+            } else if (BEGINS_WITH(walk + 1, "avail")) {
+                outwalk += print_bytes_human(outwalk, (uint64_t)buf.f_bsize * (uint64_t)buf.f_bavail, prefix_type);
+                walk += sizeof("avail");
+
+            } else if (BEGINS_WITH(walk + 1, "percentage_free")) {
+                outwalk += sprintf(outwalk, "%.01f%s", 100.0 * (double)buf.f_bfree / (double)buf.f_blocks, pct_mark);
+                walk += sizeof("percentage_free");
+
+            } else if (BEGINS_WITH(walk + 1, "percentage_used_of_avail")) {
+                outwalk += sprintf(outwalk, "%.01f%s", 100.0 * (double)(buf.f_blocks - buf.f_bavail) / (double)buf.f_blocks, pct_mark);
+                walk += sizeof("percentage_used_of_avail");
+
+            } else if (BEGINS_WITH(walk + 1, "percentage_used")) {
+                outwalk += sprintf(outwalk, "%.01f%s", 100.0 * (double)(buf.f_blocks - buf.f_bfree) / (double)buf.f_blocks, pct_mark);
+                walk += sizeof("percentage_used");
+
+            } else if (BEGINS_WITH(walk + 1, "percentage_avail")) {
+                outwalk += sprintf(outwalk, "%.01f%s", 100.0 * (double)buf.f_bavail / (double)buf.f_blocks, pct_mark);
+                walk += sizeof("percentage_avail");
+
+            } else {
+                *(outwalk++) = '%';
+                ++walk;
+            }
+        }
+
+        if (colorful_output)
+            END_COLOR;
+
+        *outwalk = '\0';
+        OUTPUT_FULL_TEXT(buffer);
+        return;
     }
     if (colorful_output) {
-	    START_COLOR("color_bad");
+        START_COLOR("color_bad");
         END_COLOR;
     }
     OUTPUT_FULL_TEXT(buffer);

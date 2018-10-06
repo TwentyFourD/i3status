@@ -20,7 +20,7 @@ void print_run_watch(yajl_gen json_gen, char *buffer, const char *title, const c
 
     START_COLOR((running ? "color_good" : "color_bad"));
 
-    for (; *walk != '\0'; ) {
+    for (; *walk != '\0';) {
         if (*walk != '%') {
             *(outwalk++) = *walk++;
 

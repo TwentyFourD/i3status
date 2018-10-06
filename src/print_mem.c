@@ -156,7 +156,7 @@ void print_memory(yajl_gen json_gen, char *buffer, const char *format, const cha
             selected_format = format_degraded;
     }
 
-    for (walk = selected_format; *walk != '\0'; ) {
+    for (walk = selected_format; *walk != '\0';) {
         if (*walk != '%') {
             *(outwalk++) = *walk++;
 

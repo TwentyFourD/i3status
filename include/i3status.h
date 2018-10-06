@@ -29,7 +29,7 @@ extern char *pct_mark;
 #include <pthread.h>
 #include <stdint.h>
 
-bool begins_with(const char* haystack, const char* needle);
+bool begins_with(const char *haystack, const char *needle);
 
 #define BEGINS_WITH(haystack, needle) begins_with((haystack), (needle))
 #define max(a, b) ((a) > (b) ? (a) : (b))
@@ -242,9 +242,9 @@ extern void **cur_instance;
 extern pthread_t main_thread;
 
 enum I3STATUS_COLOUR {
-	COLOUR_BAD,
-	COLOUR_GOOD,
-	COLOUR_DEGRADED
+    COLOUR_BAD,
+    COLOUR_GOOD,
+    COLOUR_DEGRADED
 };
 
 #endif

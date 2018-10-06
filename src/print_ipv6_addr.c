@@ -130,7 +130,7 @@ void print_ipv6_info(yajl_gen json_gen, char *buffer, const char *format_up, con
     }
 
     START_COLOR("color_good");
-    for (walk = format_up; *walk != '\0'; ) {
+    for (walk = format_up; *walk != '\0';) {
         if (*walk != '%') {
             *(outwalk++) = *walk++;
 

@@ -177,7 +177,7 @@ void print_eth_info(yajl_gen json_gen, char *buffer, const char *interface, cons
     }
 
 out:
-    for (walk = format; *walk != '\0'; ) {
+    for (walk = format; *walk != '\0';) {
         if (*walk != '%') {
             *(outwalk++) = *walk++;
 

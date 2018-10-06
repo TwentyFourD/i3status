@@ -59,8 +59,9 @@ void die(const char *fmt, ...) {
     exit(EXIT_FAILURE);
 }
 
-bool begins_with(const char* haystack, const char* needle) {
-	while (*needle)
-		if (*needle++ != *haystack++) return false;
-	return true;
+bool begins_with(const char *haystack, const char *needle) {
+    while (*needle)
+        if (*needle++ != *haystack++)
+            return false;
+    return true;
 }

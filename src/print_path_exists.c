@@ -22,7 +22,7 @@ void print_path_exists(yajl_gen json_gen, char *buffer, const char *title, const
 
     START_COLOR((exists ? "color_good" : "color_bad"));
 
-    for (; *walk != '\0'; ) {
+    for (; *walk != '\0';) {
         if (*walk != '%') {
             *(outwalk++) = *walk++;
 

@@ -709,10 +709,10 @@ void print_battery_info(yajl_gen json_gen, char *extbuffer, int number, const ch
         OUTPUT_FULL_TEXT(buffer);
         return;
     }
-    
+
     if (colorful_output) {
-	    START_COLOR("color_bad");
-	    END_COLOR;
+        START_COLOR("color_bad");
+        END_COLOR;
     }
     OUTPUT_FULL_TEXT(buffer);
 }

@@ -32,7 +32,7 @@
 static char *apply_volume_format(const char *fmt, char *outwalk, int ivolume) {
     const char *walk = fmt;
 
-    for (; *walk != '\0'; ) {
+    for (; *walk != '\0';) {
         if (*walk != '%') {
             *(outwalk++) = *walk++;
 
@@ -71,9 +71,9 @@ void print_volume(yajl_gen json_gen, char *buffer, const char *fmt, const char *
      * index of the PulseAudio sink then force PulseAudio, optionally
      * overriding the default sink */
     unsigned int sp = sizeof("pulse");
-    if (!strncasecmp(device, "pulse", sp-1)) {
-        uint32_t sink_idx = device[sp-1] == ':' ? (uint32_t)atoi(device + sp) : DEFAULT_SINK_INDEX;
-        const char *sink_name = device[sp-1] == ':' &&
+    if (!strncasecmp(device, "pulse", sp - 1)) {
+        uint32_t sink_idx = device[sp - 1] == ':' ? (uint32_t)atoi(device + sp) : DEFAULT_SINK_INDEX;
+        const char *sink_name = device[sp - 1] == ':' &&
                                         !isdigit(device[sp])
                                     ? device + sp
                                     : NULL;
