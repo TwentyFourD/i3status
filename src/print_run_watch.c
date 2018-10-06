@@ -20,20 +20,21 @@ void print_run_watch(yajl_gen json_gen, char *buffer, const char *title, const c
 
     START_COLOR((running ? "color_good" : "color_bad"));
 
-    for (; *walk != '\0'; walk++) {
+    for (; *walk != '\0'; ) {
         if (*walk != '%') {
-            *(outwalk++) = *walk;
+            *(outwalk++) = *walk++;
 
         } else if (BEGINS_WITH(walk + 1, "title")) {
             outwalk += sprintf(outwalk, "%s", title);
-            walk += strlen("title");
+            walk += sizeof("title");
 
         } else if (BEGINS_WITH(walk + 1, "status")) {
             outwalk += sprintf(outwalk, "%s", (running ? "yes" : "no"));
-            walk += strlen("status");
+            walk += sizeof("status");
 
         } else {
             *(outwalk++) = '%';
+            ++walk;
         }
     }
 

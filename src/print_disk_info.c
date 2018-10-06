@@ -73,7 +73,7 @@ static bool below_threshold(struct statvfs buf, const char *prefix_type, const c
         return (double)buf.f_bsize * (double)buf.f_bfree < low_threshold;
     } else if (strcasecmp(threshold_type, "bytes_avail") == 0) {
         return (double)buf.f_bsize * (double)buf.f_bavail < low_threshold;
-    } else if (threshold_type[0] != '\0' && strncasecmp(threshold_type + 1, "bytes_", strlen("bytes_")) == 0) {
+    } else if (threshold_type[0] != '\0' && strncasecmp(threshold_type + 1, "bytes_", sizeof("bytes")) == 0) {
         uint64_t base = strcasecmp(prefix_type, "decimal") == 0 ? DECIMAL_BASE : BINARY_BASE;
         double factor = 1;
 
@@ -110,11 +110,18 @@ static bool below_threshold(struct statvfs buf, const char *prefix_type, const c
  * human readable manner.
  *
  */
-void print_disk_info(yajl_gen json_gen, char *buffer, const char *path, const char *format, const char *format_below_threshold, const char *format_not_mounted, const char *prefix_type, const char *threshold_type, const double low_threshold) {
+ void print_disk_info(yajl_gen json_gen, char *extbuffer, const char *path, const char *format, const char *format_below_threshold, const char *format_not_mounted, const char *prefix_type, const char *threshold_type, const double low_threshold, int interval) {
+    static int count = 1;
+    static char buffer[128];
+    static char *outwalk = buffer;
+    static bool colorful_output = false;
+    if (--count <= 0) {
+        *buffer = '\0';
+        count = interval;
+        const char *walk;
+        outwalk = buffer;
     const char *selected_format = format;
-    const char *walk;
-    char *outwalk = buffer;
-    bool colorful_output = false;
+    colorful_output = false;
     bool mounted = false;
 
     INSTANCE(path);
@@ -169,44 +176,45 @@ void print_disk_info(yajl_gen json_gen, char *buffer, const char *path, const ch
             selected_format = format_below_threshold;
     }
 
-    for (walk = selected_format; *walk != '\0'; walk++) {
+    for (walk = selected_format; *walk != '\0'; ) {
         if (*walk != '%') {
-            *(outwalk++) = *walk;
+            *(outwalk++) = *walk++;
 
         } else if (BEGINS_WITH(walk + 1, "free")) {
             outwalk += print_bytes_human(outwalk, (uint64_t)buf.f_bsize * (uint64_t)buf.f_bfree, prefix_type);
-            walk += strlen("free");
+            walk += sizeof("free");
 
         } else if (BEGINS_WITH(walk + 1, "used")) {
             outwalk += print_bytes_human(outwalk, (uint64_t)buf.f_bsize * ((uint64_t)buf.f_blocks - (uint64_t)buf.f_bfree), prefix_type);
-            walk += strlen("used");
+            walk += sizeof("used");
 
         } else if (BEGINS_WITH(walk + 1, "total")) {
             outwalk += print_bytes_human(outwalk, (uint64_t)buf.f_bsize * (uint64_t)buf.f_blocks, prefix_type);
-            walk += strlen("total");
+            walk += sizeof("total");
 
         } else if (BEGINS_WITH(walk + 1, "avail")) {
             outwalk += print_bytes_human(outwalk, (uint64_t)buf.f_bsize * (uint64_t)buf.f_bavail, prefix_type);
-            walk += strlen("avail");
+            walk += sizeof("avail");
 
         } else if (BEGINS_WITH(walk + 1, "percentage_free")) {
             outwalk += sprintf(outwalk, "%.01f%s", 100.0 * (double)buf.f_bfree / (double)buf.f_blocks, pct_mark);
-            walk += strlen("percentage_free");
+            walk += sizeof("percentage_free");
 
         } else if (BEGINS_WITH(walk + 1, "percentage_used_of_avail")) {
             outwalk += sprintf(outwalk, "%.01f%s", 100.0 * (double)(buf.f_blocks - buf.f_bavail) / (double)buf.f_blocks, pct_mark);
-            walk += strlen("percentage_used_of_avail");
+            walk += sizeof("percentage_used_of_avail");
 
         } else if (BEGINS_WITH(walk + 1, "percentage_used")) {
             outwalk += sprintf(outwalk, "%.01f%s", 100.0 * (double)(buf.f_blocks - buf.f_bfree) / (double)buf.f_blocks, pct_mark);
-            walk += strlen("percentage_used");
+            walk += sizeof("percentage_used");
 
         } else if (BEGINS_WITH(walk + 1, "percentage_avail")) {
             outwalk += sprintf(outwalk, "%.01f%s", 100.0 * (double)buf.f_bavail / (double)buf.f_blocks, pct_mark);
-            walk += strlen("percentage_avail");
+            walk += sizeof("percentage_avail");
 
         } else {
             *(outwalk++) = '%';
+            ++walk;
         }
     }
 
@@ -214,5 +222,12 @@ void print_disk_info(yajl_gen json_gen, char *buffer, const char *path, const ch
         END_COLOR;
 
     *outwalk = '\0';
+    OUTPUT_FULL_TEXT(buffer);
+    return;
+    }
+    if (colorful_output) {
+	    START_COLOR("color_bad");
+        END_COLOR;
+    }
     OUTPUT_FULL_TEXT(buffer);
 }

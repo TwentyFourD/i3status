@@ -526,86 +526,93 @@ static bool slurp_all_batteries(struct battery_info *batt_info, yajl_gen json_ge
     return true;
 }
 
-void print_battery_info(yajl_gen json_gen, char *buffer, int number, const char *path, const char *format, const char *format_down, const char *status_chr, const char *status_bat, const char *status_unk, const char *status_full, int low_threshold, char *threshold_type, bool last_full_capacity, bool integer_battery_capacity, bool hide_seconds) {
-    const char *walk;
-    char *outwalk = buffer;
-    struct battery_info batt_info = {
-        .full_design = -1,
-        .full_last = -1,
-        .remaining = -1,
-        .present_rate = -1,
-        .seconds_remaining = -1,
-        .percentage_remaining = -1,
-        .status = CS_UNKNOWN,
-    };
-    bool colorful_output = false;
+void print_battery_info(yajl_gen json_gen, char *extbuffer, int number, const char *path, const char *format, const char *format_down, const char *status_chr, const char *status_bat, const char *status_unk, const char *status_full, int low_threshold, char *threshold_type, bool last_full_capacity, bool integer_battery_capacity, bool hide_seconds, int interval) {
+    static int count = 1;
+    static char buffer[128];
+    static char *outwalk = buffer;
+    static bool colorful_output = false;
+    if (--count <= 0) {
+        *buffer = '\0';
+        count = interval;
+        const char *walk;
+        outwalk = buffer;
+        struct battery_info batt_info = {
+            .full_design = -1,
+            .full_last = -1,
+            .remaining = -1,
+            .present_rate = -1,
+            .seconds_remaining = -1,
+            .percentage_remaining = -1,
+            .status = CS_UNKNOWN,
+        };
+        colorful_output = false;
 
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__DragonFly__) || defined(__OpenBSD__)
-    /* These OSes report battery stats in whole percent. */
-    integer_battery_capacity = true;
+        /* These OSes report battery stats in whole percent. */
+        integer_battery_capacity = true;
 #endif
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__DragonFly__) || defined(__OpenBSD__)
-    /* These OSes report battery time in minutes. */
-    hide_seconds = true;
+        /* These OSes report battery time in minutes. */
+        hide_seconds = true;
 #endif
 
-    if (number < 0) {
-        if (!slurp_all_batteries(&batt_info, json_gen, buffer, path, format_down))
-            return;
-    } else {
-        if (!slurp_battery_info(&batt_info, json_gen, buffer, number, path, format_down))
-            return;
-    }
+        if (number < 0) {
+            if (!slurp_all_batteries(&batt_info, json_gen, buffer, path, format_down))
+                return;
+        } else {
+            if (!slurp_battery_info(&batt_info, json_gen, buffer, number, path, format_down))
+                return;
+        }
 
-    // *Choose* a measure of the 'full' battery. It is whichever is better of
-    // the battery's (hardware-given) design capacity (batt_info.full_design)
-    // and the battery's last known good charge (batt_info.full_last).
-    // We prefer the design capacity, but use the last capacity if we don't have it,
-    // or if we are asked to (last_full_capacity == true); but similarly we use
-    // the design capacity if we don't have the last capacity.
-    // If we don't have either then both full_design and full_last <= 0,
-    // which implies full <= 0, which bails out on the following line.
-    int full = batt_info.full_design;
-    if (full <= 0 || (last_full_capacity && batt_info.full_last > 0)) {
-        full = batt_info.full_last;
-    }
-    if (full <= 0 && batt_info.remaining < 0 && batt_info.percentage_remaining < 0) {
-        /* We have no physical measurements and no estimates. Nothing
+        // *Choose* a measure of the 'full' battery. It is whichever is better of
+        // the battery's (hardware-given) design capacity (batt_info.full_design)
+        // and the battery's last known good charge (batt_info.full_last).
+        // We prefer the design capacity, but use the last capacity if we don't have it,
+        // or if we are asked to (last_full_capacity == true); but similarly we use
+        // the design capacity if we don't have the last capacity.
+        // If we don't have either then both full_design and full_last <= 0,
+        // which implies full <= 0, which bails out on the following line.
+        int full = batt_info.full_design;
+        if (full <= 0 || (last_full_capacity && batt_info.full_last > 0)) {
+            full = batt_info.full_last;
+        }
+        if (full <= 0 && batt_info.remaining < 0 && batt_info.percentage_remaining < 0) {
+            /* We have no physical measurements and no estimates. Nothing
          * much we can report, then. */
-        OUTPUT_FULL_TEXT(format_down);
-        return;
-    }
+            OUTPUT_FULL_TEXT(format_down);
+            return;
+        }
 
-    if (batt_info.percentage_remaining < 0) {
-        batt_info.percentage_remaining = (((float)batt_info.remaining / (float)full) * 100);
-        /* Some batteries report POWER_SUPPLY_CHARGE_NOW=<full_design> when fully
+        if (batt_info.percentage_remaining < 0) {
+            batt_info.percentage_remaining = (((float)batt_info.remaining / (float)full) * 100);
+            /* Some batteries report POWER_SUPPLY_CHARGE_NOW=<full_design> when fully
          * charged, even though that’s plainly wrong. For people who chose to see
          * the percentage calculated based on the last full capacity, we clamp the
          * value to 100%, as that makes more sense.
          * See http://bugs.debian.org/785398 */
-        if (last_full_capacity && batt_info.percentage_remaining > 100) {
-            batt_info.percentage_remaining = 100;
+            if (last_full_capacity && batt_info.percentage_remaining > 100) {
+                batt_info.percentage_remaining = 100;
+            }
         }
-    }
 
-    if (batt_info.seconds_remaining < 0 && batt_info.present_rate > 0 && batt_info.status != CS_FULL) {
-        if (batt_info.status == CS_CHARGING)
-            batt_info.seconds_remaining = 3600.0 * (full - batt_info.remaining) / batt_info.present_rate;
-        else if (batt_info.status == CS_DISCHARGING)
-            batt_info.seconds_remaining = 3600.0 * batt_info.remaining / batt_info.present_rate;
-        else
-            batt_info.seconds_remaining = 0;
-    }
-
-    if (batt_info.status == CS_DISCHARGING && low_threshold > 0) {
-        if (batt_info.percentage_remaining >= 0 && strcasecmp(threshold_type, "percentage") == 0 && batt_info.percentage_remaining < low_threshold) {
-            START_COLOR("color_bad");
-            colorful_output = true;
-        } else if (batt_info.seconds_remaining >= 0 && strcasecmp(threshold_type, "time") == 0 && batt_info.seconds_remaining < 60 * low_threshold) {
-            START_COLOR("color_bad");
-            colorful_output = true;
+        if (batt_info.seconds_remaining < 0 && batt_info.present_rate > 0 && batt_info.status != CS_FULL) {
+            if (batt_info.status == CS_CHARGING)
+                batt_info.seconds_remaining = 3600.0 * (full - batt_info.remaining) / batt_info.present_rate;
+            else if (batt_info.status == CS_DISCHARGING)
+                batt_info.seconds_remaining = 3600.0 * batt_info.remaining / batt_info.present_rate;
+            else
+                batt_info.seconds_remaining = 0;
         }
-    }
+
+        if (batt_info.status == CS_DISCHARGING && low_threshold > 0) {
+            if (batt_info.percentage_remaining >= 0 && strcasecmp(threshold_type, "percentage") == 0 && batt_info.percentage_remaining < low_threshold) {
+                START_COLOR("color_bad");
+                colorful_output = true;
+            } else if (batt_info.seconds_remaining >= 0 && strcasecmp(threshold_type, "time") == 0 && batt_info.seconds_remaining < 60 * low_threshold) {
+                START_COLOR("color_bad");
+                colorful_output = true;
+            }
+        }
 
 #define EAT_SPACE_FROM_OUTPUT_IF_NO_OUTPUT()                   \
     do {                                                       \
@@ -617,88 +624,95 @@ void print_battery_info(yajl_gen json_gen, char *buffer, int number, const char 
         }                                                      \
     } while (0)
 
-    for (walk = format; *walk != '\0'; walk++) {
-        char *prevoutwalk = outwalk;
+        for (walk = format; *walk != '\0';) {
+            char *prevoutwalk = outwalk;
 
-        if (*walk != '%') {
-            *(outwalk++) = *walk;
+            if (*walk != '%') {
+                *(outwalk++) = *walk++;
 
-        } else if (BEGINS_WITH(walk + 1, "status")) {
-            const char *statusstr;
-            switch (batt_info.status) {
-                case CS_CHARGING:
-                    statusstr = status_chr;
-                    break;
-                case CS_DISCHARGING:
-                    statusstr = status_bat;
-                    break;
-                case CS_FULL:
-                    statusstr = status_full;
-                    break;
-                default:
-                    statusstr = status_unk;
-            }
+            } else if (BEGINS_WITH(walk + 1, "status")) {
+                const char *statusstr;
+                switch (batt_info.status) {
+                    case CS_CHARGING:
+                        statusstr = status_chr;
+                        break;
+                    case CS_DISCHARGING:
+                        statusstr = status_bat;
+                        break;
+                    case CS_FULL:
+                        statusstr = status_full;
+                        break;
+                    default:
+                        statusstr = status_unk;
+                }
 
-            outwalk += sprintf(outwalk, "%s", statusstr);
-            walk += strlen("status");
+                outwalk += sprintf(outwalk, "%s", statusstr);
+                walk += sizeof("status");
 
-        } else if (BEGINS_WITH(walk + 1, "percentage")) {
-            if (integer_battery_capacity) {
-                outwalk += sprintf(outwalk, "%.00f%s", batt_info.percentage_remaining, pct_mark);
+            } else if (BEGINS_WITH(walk + 1, "percentage")) {
+                if (integer_battery_capacity) {
+                    outwalk += sprintf(outwalk, "%.00f%s", batt_info.percentage_remaining, pct_mark);
+                } else {
+                    outwalk += sprintf(outwalk, "%.02f%s", batt_info.percentage_remaining, pct_mark);
+                }
+                walk += sizeof("percentage");
+
+            } else if (BEGINS_WITH(walk + 1, "remaining")) {
+                if (batt_info.seconds_remaining >= 0) {
+                    int seconds, hours, minutes;
+
+                    hours = batt_info.seconds_remaining / 3600;
+                    seconds = batt_info.seconds_remaining - (hours * 3600);
+                    minutes = seconds / 60;
+                    seconds -= (minutes * 60);
+
+                    if (hide_seconds)
+                        outwalk += sprintf(outwalk, "%02d:%02d",
+                                           max(hours, 0), max(minutes, 0));
+                    else
+                        outwalk += sprintf(outwalk, "%02d:%02d:%02d",
+                                           max(hours, 0), max(minutes, 0), max(seconds, 0));
+                }
+                walk += sizeof("remaining");
+                EAT_SPACE_FROM_OUTPUT_IF_NO_OUTPUT();
+
+            } else if (BEGINS_WITH(walk + 1, "emptytime")) {
+                if (batt_info.seconds_remaining >= 0) {
+                    time_t empty_time = time(NULL) + batt_info.seconds_remaining;
+                    set_timezone(NULL); /* Use local time. */
+                    struct tm *empty_tm = localtime(&empty_time);
+
+                    if (hide_seconds)
+                        outwalk += sprintf(outwalk, "%02d:%02d",
+                                           max(empty_tm->tm_hour, 0), max(empty_tm->tm_min, 0));
+                    else
+                        outwalk += sprintf(outwalk, "%02d:%02d:%02d",
+                                           max(empty_tm->tm_hour, 0), max(empty_tm->tm_min, 0), max(empty_tm->tm_sec, 0));
+                }
+                walk += sizeof("emptytime");
+                EAT_SPACE_FROM_OUTPUT_IF_NO_OUTPUT();
+
+            } else if (BEGINS_WITH(walk + 1, "consumption")) {
+                if (batt_info.present_rate >= 0)
+                    outwalk += sprintf(outwalk, "%1.2fW", batt_info.present_rate / 1e6);
+
+                walk += sizeof("consumption");
+                EAT_SPACE_FROM_OUTPUT_IF_NO_OUTPUT();
+
             } else {
-                outwalk += sprintf(outwalk, "%.02f%s", batt_info.percentage_remaining, pct_mark);
+                *(outwalk++) = '%';
+                ++walk;
             }
-            walk += strlen("percentage");
-
-        } else if (BEGINS_WITH(walk + 1, "remaining")) {
-            if (batt_info.seconds_remaining >= 0) {
-                int seconds, hours, minutes;
-
-                hours = batt_info.seconds_remaining / 3600;
-                seconds = batt_info.seconds_remaining - (hours * 3600);
-                minutes = seconds / 60;
-                seconds -= (minutes * 60);
-
-                if (hide_seconds)
-                    outwalk += sprintf(outwalk, "%02d:%02d",
-                                       max(hours, 0), max(minutes, 0));
-                else
-                    outwalk += sprintf(outwalk, "%02d:%02d:%02d",
-                                       max(hours, 0), max(minutes, 0), max(seconds, 0));
-            }
-            walk += strlen("remaining");
-            EAT_SPACE_FROM_OUTPUT_IF_NO_OUTPUT();
-
-        } else if (BEGINS_WITH(walk + 1, "emptytime")) {
-            if (batt_info.seconds_remaining >= 0) {
-                time_t empty_time = time(NULL) + batt_info.seconds_remaining;
-                set_timezone(NULL); /* Use local time. */
-                struct tm *empty_tm = localtime(&empty_time);
-
-                if (hide_seconds)
-                    outwalk += sprintf(outwalk, "%02d:%02d",
-                                       max(empty_tm->tm_hour, 0), max(empty_tm->tm_min, 0));
-                else
-                    outwalk += sprintf(outwalk, "%02d:%02d:%02d",
-                                       max(empty_tm->tm_hour, 0), max(empty_tm->tm_min, 0), max(empty_tm->tm_sec, 0));
-            }
-            walk += strlen("emptytime");
-            EAT_SPACE_FROM_OUTPUT_IF_NO_OUTPUT();
-
-        } else if (BEGINS_WITH(walk + 1, "consumption")) {
-            if (batt_info.present_rate >= 0)
-                outwalk += sprintf(outwalk, "%1.2fW", batt_info.present_rate / 1e6);
-
-            walk += strlen("consumption");
-            EAT_SPACE_FROM_OUTPUT_IF_NO_OUTPUT();
-
-        } else {
-            *(outwalk++) = '%';
         }
+        if (colorful_output)
+            END_COLOR;
+        OUTPUT_FULL_TEXT(buffer);
+        return;
     }
-
-    if (colorful_output)
-        END_COLOR;
-
+    
+    if (colorful_output) {
+	    START_COLOR("color_bad");
+	    END_COLOR;
+    }
     OUTPUT_FULL_TEXT(buffer);
 }

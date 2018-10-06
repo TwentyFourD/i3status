@@ -26,24 +26,25 @@ void print_load(yajl_gen json_gen, char *buffer, const char *format, const char 
             selected_format = format_above_threshold;
     }
 
-    for (walk = selected_format; *walk != '\0'; walk++) {
+    for (walk = selected_format; *walk != '\0'; ) {
         if (*walk != '%') {
-            *(outwalk++) = *walk;
+            *(outwalk++) = *walk++;
 
         } else if (BEGINS_WITH(walk + 1, "1min")) {
             outwalk += sprintf(outwalk, "%1.2f", loadavg[0]);
-            walk += strlen("1min");
+            walk += sizeof("1min");
 
         } else if (BEGINS_WITH(walk + 1, "5min")) {
             outwalk += sprintf(outwalk, "%1.2f", loadavg[1]);
-            walk += strlen("5min");
+            walk += sizeof("5min");
 
         } else if (BEGINS_WITH(walk + 1, "15min")) {
             outwalk += sprintf(outwalk, "%1.2f", loadavg[2]);
-            walk += strlen("15min");
+            walk += sizeof("15min");
 
         } else {
             *(outwalk++) = '%';
+            ++walk;
         }
     }
 

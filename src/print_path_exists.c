@@ -22,20 +22,21 @@ void print_path_exists(yajl_gen json_gen, char *buffer, const char *title, const
 
     START_COLOR((exists ? "color_good" : "color_bad"));
 
-    for (; *walk != '\0'; walk++) {
+    for (; *walk != '\0'; ) {
         if (*walk != '%') {
-            *(outwalk++) = *walk;
+            *(outwalk++) = *walk++;
 
         } else if (BEGINS_WITH(walk + 1, "title")) {
             outwalk += sprintf(outwalk, "%s", title);
-            walk += strlen("title");
+            walk += sizeof("title");
 
         } else if (BEGINS_WITH(walk + 1, "status")) {
             outwalk += sprintf(outwalk, "%s", (exists ? "yes" : "no"));
-            walk += strlen("status");
+            walk += sizeof("status");
 
         } else {
             *(outwalk++) = '%';
+            ++walk;
         }
     }
 

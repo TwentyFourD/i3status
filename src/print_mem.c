@@ -95,22 +95,22 @@ void print_memory(yajl_gen json_gen, char *buffer, const char *format, const cha
     char line[128];
     while (fgets(line, sizeof line, file)) {
         if (BEGINS_WITH(line, "MemTotal:")) {
-            ram_total = strtol(line + strlen("MemTotal:"), NULL, 10);
+            ram_total = strtol(line + sizeof("MemTotal"), NULL, 10);
         }
         if (BEGINS_WITH(line, "MemFree:")) {
-            ram_free = strtol(line + strlen("MemFree:"), NULL, 10);
+            ram_free = strtol(line + sizeof("MemFree"), NULL, 10);
         }
         if (BEGINS_WITH(line, "MemAvailable:")) {
-            ram_available = strtol(line + strlen("MemAvailable:"), NULL, 10);
+            ram_available = strtol(line + sizeof("MemAvailable"), NULL, 10);
         }
         if (BEGINS_WITH(line, "Buffers:")) {
-            ram_buffers = strtol(line + strlen("Buffers:"), NULL, 10);
+            ram_buffers = strtol(line + sizeof("Buffers"), NULL, 10);
         }
         if (BEGINS_WITH(line, "Cached:")) {
-            ram_cached = strtol(line + strlen("Cached:"), NULL, 10);
+            ram_cached = strtol(line + sizeof("Cached"), NULL, 10);
         }
         if (BEGINS_WITH(line, "Shmem:")) {
-            ram_shared = strtol(line + strlen("Shmem:"), NULL, 10);
+            ram_shared = strtol(line + sizeof("Shmem"), NULL, 10);
         }
         if (ram_total != -1 && ram_free != -1 && ram_available != -1 && ram_buffers != -1 && ram_cached != -1 && ram_shared != -1) {
             break;
@@ -156,48 +156,49 @@ void print_memory(yajl_gen json_gen, char *buffer, const char *format, const cha
             selected_format = format_degraded;
     }
 
-    for (walk = selected_format; *walk != '\0'; walk++) {
+    for (walk = selected_format; *walk != '\0'; ) {
         if (*walk != '%') {
-            *(outwalk++) = *walk;
+            *(outwalk++) = *walk++;
 
         } else if (BEGINS_WITH(walk + 1, "total")) {
             outwalk += print_bytes_human(outwalk, ram_total);
-            walk += strlen("total");
+            walk += sizeof("total");
 
         } else if (BEGINS_WITH(walk + 1, "used")) {
             outwalk += print_bytes_human(outwalk, ram_used);
-            walk += strlen("used");
+            walk += sizeof("used");
 
         } else if (BEGINS_WITH(walk + 1, "free")) {
             outwalk += print_bytes_human(outwalk, ram_free);
-            walk += strlen("free");
+            walk += sizeof("free");
 
         } else if (BEGINS_WITH(walk + 1, "available")) {
             outwalk += print_bytes_human(outwalk, ram_available);
-            walk += strlen("available");
+            walk += sizeof("available");
 
         } else if (BEGINS_WITH(walk + 1, "shared")) {
             outwalk += print_bytes_human(outwalk, ram_shared);
-            walk += strlen("shared");
+            walk += sizeof("shared");
 
         } else if (BEGINS_WITH(walk + 1, "percentage_free")) {
             outwalk += sprintf(outwalk, "%.01f%s", 100.0 * ram_free / ram_total, pct_mark);
-            walk += strlen("percentage_free");
+            walk += sizeof("percentage_free");
 
         } else if (BEGINS_WITH(walk + 1, "percentage_available")) {
             outwalk += sprintf(outwalk, "%.01f%s", 100.0 * ram_available / ram_total, pct_mark);
-            walk += strlen("percentage_available");
+            walk += sizeof("percentage_available");
 
         } else if (BEGINS_WITH(walk + 1, "percentage_used")) {
             outwalk += sprintf(outwalk, "%.01f%s", 100.0 * ram_used / ram_total, pct_mark);
-            walk += strlen("percentage_used");
+            walk += sizeof("percentage_used");
 
         } else if (BEGINS_WITH(walk + 1, "percentage_shared")) {
             outwalk += sprintf(outwalk, "%.01f%s", 100.0 * ram_shared / ram_total, pct_mark);
-            walk += strlen("percentage_shared");
+            walk += sizeof("percentage_shared");
 
         } else {
             *(outwalk++) = '%';
+            ++walk;
         }
     }
 

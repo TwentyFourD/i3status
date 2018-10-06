@@ -177,24 +177,25 @@ void print_eth_info(yajl_gen json_gen, char *buffer, const char *interface, cons
     }
 
 out:
-    for (walk = format; *walk != '\0'; walk++) {
+    for (walk = format; *walk != '\0'; ) {
         if (*walk != '%') {
-            *(outwalk++) = *walk;
+            *(outwalk++) = *walk++;
 
         } else if (BEGINS_WITH(walk + 1, "ip")) {
             outwalk += sprintf(outwalk, "%s", ip_address);
-            walk += strlen("ip");
+            walk += sizeof("ip");
 
         } else if (BEGINS_WITH(walk + 1, "speed")) {
             outwalk += print_eth_speed(outwalk, interface);
-            walk += strlen("speed");
+            walk += sizeof("speed");
 
         } else if (BEGINS_WITH(walk + 1, "interface")) {
             outwalk += sprintf(outwalk, "%s", interface);
-            walk += strlen("interface");
+            walk += sizeof("interface");
 
         } else {
             *(outwalk++) = '%';
+            ++walk;
         }
     }
     END_COLOR;

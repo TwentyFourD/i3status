@@ -32,20 +32,21 @@
 static char *apply_volume_format(const char *fmt, char *outwalk, int ivolume) {
     const char *walk = fmt;
 
-    for (; *walk != '\0'; walk++) {
+    for (; *walk != '\0'; ) {
         if (*walk != '%') {
-            *(outwalk++) = *walk;
+            *(outwalk++) = *walk++;
 
         } else if (BEGINS_WITH(walk + 1, "%")) {
             outwalk += sprintf(outwalk, "%s", pct_mark);
-            walk += strlen("%");
+            walk += sizeof("%");
 
         } else if (BEGINS_WITH(walk + 1, "volume")) {
             outwalk += sprintf(outwalk, "%d%s", ivolume, pct_mark);
-            walk += strlen("volume");
+            walk += sizeof("volume");
 
         } else {
             *(outwalk++) = '%';
+            ++walk;
         }
     }
     return outwalk;
@@ -69,11 +70,12 @@ void print_volume(yajl_gen json_gen, char *buffer, const char *fmt, const char *
     /* If the device name has the format "pulse[:N]" where N is the
      * index of the PulseAudio sink then force PulseAudio, optionally
      * overriding the default sink */
-    if (!strncasecmp(device, "pulse", strlen("pulse"))) {
-        uint32_t sink_idx = device[strlen("pulse")] == ':' ? (uint32_t)atoi(device + strlen("pulse:")) : DEFAULT_SINK_INDEX;
-        const char *sink_name = device[strlen("pulse")] == ':' &&
-                                        !isdigit(device[strlen("pulse:")])
-                                    ? device + strlen("pulse:")
+    unsigned int sp = sizeof("pulse");
+    if (!strncasecmp(device, "pulse", sp-1)) {
+        uint32_t sink_idx = device[sp-1] == ':' ? (uint32_t)atoi(device + sp) : DEFAULT_SINK_INDEX;
+        const char *sink_name = device[sp-1] == ':' &&
+                                        !isdigit(device[sp])
+                                    ? device + sp
                                     : NULL;
         int cvolume = pulse_initialize() ? volume_pulseaudio(sink_idx, sink_name) : 0;
         int ivolume = DECOMPOSE_VOLUME(cvolume);

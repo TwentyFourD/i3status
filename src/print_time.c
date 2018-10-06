@@ -34,11 +34,11 @@ void set_timezone(const char *tz) {
     tzset();
 }
 
-void print_time(yajl_gen json_gen, char *buffer, const char *title, const char *format, const char *tz, const char *locale, const char *format_time, time_t t) {
+void print_time(yajl_gen json_gen, char *buffer, const char *title, const char *format, const char *tz, const char *locale, const char *format_time, time_t t, int interval, int update_interval) {
     const char *walk;
     char *outwalk = buffer;
     struct tm tm;
-    char timebuf[1024];
+    static char timebuf[1024];
 
     if (title != NULL)
         INSTANCE(title);
@@ -51,20 +51,25 @@ void print_time(yajl_gen json_gen, char *buffer, const char *title, const char *
     }
 
     if (format_time == NULL) {
-        strftime(timebuf, sizeof(timebuf), format, &tm);
+        if ((tm.tm_sec % update_interval) < interval || timebuf[0] == '\0') {
+            strftime(timebuf, sizeof(timebuf), format, &tm);
+        }
         maybe_escape_markup(timebuf, &outwalk);
     } else {
-        for (walk = format; *walk != '\0'; walk++) {
+        for (walk = format; *walk != '\0';) {
             if (*walk != '%') {
-                *(outwalk++) = *walk;
+                *(outwalk++) = *walk++;
 
             } else if (BEGINS_WITH(walk + 1, "time")) {
-                strftime(timebuf, sizeof(timebuf), format_time, &tm);
+                if ((tm.tm_sec % update_interval) < interval || timebuf[0] == '\0') {
+                    strftime(timebuf, sizeof(timebuf), format_time, &tm);
+                }
                 maybe_escape_markup(timebuf, &outwalk);
-                walk += strlen("time");
+                walk += sizeof("time");
 
             } else {
                 *(outwalk++) = '%';
+                ++walk;
             }
         }
     }
